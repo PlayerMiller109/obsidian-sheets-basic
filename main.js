@@ -27,7 +27,7 @@ const ob = require('obsidian')
         this.source = textContent.join('\n')
       }
 
-      if (app.workspace.getActiveFileView().getMode() == 'preview' && this.source) {
+      if (app.workspace.getActiveFileView()?.getMode() == 'preview' && this.source) {
         tableEl2.empty(); ctx.addChild(new this.SheetElement(app, tableEl2, this.source))
       }
     }
