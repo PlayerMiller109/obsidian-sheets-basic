@@ -6,32 +6,28 @@ const ob = require('obsidian')
     const tableEls = Array.from(el.querySelectorAll('table')); if (!tableEls[0]) return
     const prev = {}
     for (const tableEl2 of tableEls) {
-      const sec = ctx.getSectionInfo(tableEl2) // sec ? reading mode : print
+      const sec = ctx.getSectionInfo(tableEl2)
       if (sec) {
         const { text, lineStart, lineEnd } = sec
         // yes ? match ^| line : match not ^| line
         , fI = (arr, yes)=> arr.findIndex(i=> (yes ? /^\|/ : /^(?!\|)/).test(i))
-  
+
         let textContent = (prev.t == text && prev.s == lineStart && prev.ed == lineEnd)
           ? prev.r // continue old one
           : text.split('\n').slice(lineStart, lineEnd+1) // get new one
               .map(line=> line.replace(/^.*?(?=(?<!\\)\|)/, '')) // replace content before |
         prev.t = text; prev.s = lineStart; prev.ed = lineEnd
-  
+
         if (textContent[0].startsWith('```')) return // exclude codeblock
-  
+
         textContent.splice(0, fI(textContent, 1)); let endIndex = fI(textContent)
         while (endIndex > -1) {
           prev.r = textContent.splice(endIndex); endIndex = textContent[0].startsWith('|') ? -1 : fI(prev.r)
         }
         this.source = textContent.join('\n')
       }
-      // if print in source mode
-      if (!sec && app.workspace.getActiveFileView().getMode() == 'source') {
-        const msg = 'Please export in reading / preview mode - Sheets Basic Plugin'
-        new Notice(msg, 5000); console.log(msg); //throw new Error()
-      }
-      else if (this.source) {
+
+      if (app.workspace.getActiveFileView().getMode() == 'preview' && this.source) {
         tableEl2.empty(); ctx.addChild(new this.SheetElement(app, tableEl2, this.source))
       }
     }
@@ -95,7 +91,7 @@ const ob = require('obsidian')
         cell.rowSpan += 1
       } else {
         cell = rowNode.createEl(cellTag)
-        ob.MarkdownRenderer.render(this.app, '\u200B '+cellContent, cell, '', this)
+        ob.MarkdownRenderer.render(this.app, `\u200B ${cellContent||'\u200B'}`, cell, '', this)
           .then(()=> cell.innerHTML = cell.children[0].innerHTML.replace(/^\u200B /g, ''))
       }
       return this.domGrid[rowIndex][columnIndex] = cell
