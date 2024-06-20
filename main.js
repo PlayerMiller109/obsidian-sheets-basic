@@ -49,6 +49,7 @@ const ob = require('obsidian')
       this.tableHead = this.el.createEl('thead')
       this.tableBody = this.el.createEl('tbody')
       this.headerRow = this.contentGrid.findIndex(row=> row.every(col=> this.headerRE.test(col)))
+      if (this.headerRow !== -1) this.colStyles = this.getHeaderStyles(this.contentGrid[this.headerRow])
       this.buildDomTable()
     }
     onunload() {}
@@ -65,6 +66,16 @@ const ob = require('obsidian')
       )
     }
 
+    getHeaderStyles(rowHeads) {
+      return rowHeads.map(rowHead => {
+        const alignment = rowHead.match(this.headerRE), styles = {}
+        if (alignment[1] && alignment[2]) styles['textAlign'] = 'center'
+        else if (alignment[1]) styles['textAlign'] = 'left'
+        else if (alignment[2]) styles['textAlign'] = 'right'
+        return { styles }
+      })
+    }
+
     buildDomTable() {
       for (let rowIndex = 0; rowIndex < this.contentGrid.length; rowIndex++) {
         if (rowIndex == this.headerRow) continue
@@ -78,7 +89,7 @@ const ob = require('obsidian')
     }
     buildDomCell(rowIndex, columnIndex, rowNode) {
       if (rowIndex == this.headerRow) return
-      let cellTag = 'td', cell
+      let cellTag = 'td', cell, cellStyles
       if (rowIndex < this.headerRow) cellTag = 'th'
       const cellContent = this.contentGrid[rowIndex][columnIndex]
       if (cellContent == MERGE_LEFT_SIGNIFIER && columnIndex > 0) {
@@ -94,6 +105,10 @@ const ob = require('obsidian')
         ob.MarkdownRenderer.render(this.app, `\u200B ${cellContent||'\u200B'}`, cell, '', this)
           .then(()=> cell.innerHTML = cell.children[0].innerHTML.replace(/^\u200B /g, ''))
       }
+      if (this.colStyles?.[columnIndex]) {
+        cellStyles = { ...cellStyles, ...this.colStyles[columnIndex].styles }
+      }
+      Object.assign(cell.style, cellStyles)
       return this.domGrid[rowIndex][columnIndex] = cell
     }
   }
