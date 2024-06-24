@@ -1,54 +1,51 @@
 const ob = require('obsidian')
 , MERGE_UP_SIGNIFIER = '^'
 , MERGE_LEFT_SIGNIFIER = '<'
-, import_sheet = (app, ob)=> new class {
-  trimLeading = line=> line.replace(/^.*?(?=(?<!\\)\|)/, '') // trim content before |
-  rgxFindTable = (prev, textContent)=> {
-    if (textContent[0].startsWith('```')) return // exclude codeblock
-    // yes ? match ^| line : match not ^| line
-    const fI = (arr, yes)=> arr.findIndex(i=> (yes ? /^\|/ : /^(?!\|)/).test(i))
-    textContent.splice(0, fI(textContent, !0)); let endIndex = fI(textContent)
-    while (endIndex > -1) {
-      prev.r = textContent.splice(endIndex)
-      endIndex = textContent[0].startsWith('|') ? -1 : fI(prev.r)
-    }
+, trimLeading = line=> line.replace(/^.*?(?=(?<!\\)\|)/, '') // trim content before |
+, rgxFindTable = (prev, textContent)=> {
+  if (textContent[0].startsWith('```')) return // exclude codeblock
+  // yes ? match ^| line : match not ^| line
+  const fI = (arr, yes)=> arr.findIndex(i=> (yes ? /^\|/ : /^(?!\|)/).test(i))
+  textContent.splice(0, fI(textContent, !0)); let endIndex = fI(textContent)
+  while (endIndex > -1) {
+    prev.r = textContent.splice(endIndex)
+    endIndex = textContent[0].startsWith('|') ? -1 : fI(prev.r)
   }
+}
+, import_sheet = (app, ob)=> new class {
   source = []
-  sheetview = (el, ctx)=> {
+  pre = (el, ctx)=> {
     const view = app.workspace.getActiveFileView(); if (!view) return
     const tableEls = Array.from(el.querySelectorAll('table')); if (tableEls.length < 1) return
     const prev = {}
     tableEls.map(async (tEl, tIndex)=> {
-      const sec = ctx.getSectionInfo(tEl)
+      let source; const sec = ctx.getSectionInfo(tEl)
       if (!sec) {
         await new Promise(r=> setTimeout(r, 50))
-        let source; const callout = tEl.offsetParent, { cmView } = callout
-        // for source mode, table in callout
-        if (cmView) {
+        const callout = tEl.offsetParent // for source mode, table in callout
+        if (callout?.cmView) {
           let textContent = prev.callout?.isEqualNode(callout)
             ? prev.r
-            : cmView.widget.text.split('\n').map(line=> this.trimLeading(line))
+            : callout.cmView.widget.text.split('\n').map(line=> trimLeading(line))
           prev.callout = callout
-          this.rgxFindTable(prev, textContent)
+          rgxFindTable(prev, textContent)
           source = textContent.join('\n')
         } else source = this.source[tIndex] // when export
-        tEl.empty(); ctx.addChild(new this.SheetElement(app, tEl, source))
       // reading mode
       } else {
-        let source; const { text, lineStart, lineEnd } = sec
+        const { text, lineStart, lineEnd } = sec
         let textContent = (prev.t == text && prev.s == lineStart && prev.ed == lineEnd)
           ? prev.r // continue old one
-          : text.split('\n').slice(lineStart, lineEnd+1).map(line=> this.trimLeading(line)) // get new one
+          : text.split('\n').slice(lineStart, lineEnd+1).map(line=> trimLeading(line)) // get new one
         prev.t = text; prev.s = lineStart; prev.ed = lineEnd
-        this.rgxFindTable(prev, textContent)
+        rgxFindTable(prev, textContent)
         source = textContent.join('\n')
-        tEl.empty(); ctx.addChild(new this.SheetElement(app, tEl, source))
         this.source.push(source)
       }
+      tEl.empty(); ctx.addChild(new this.SheetElement(app, tEl, source))
     })
-    if (view.getMode() == 'source') this.source = []
   }
-  codesheet = (source, el, ctx)=> ctx.addChild(new this.SheetElement(app, el, source))
+  codeblock = (source, el, ctx)=> ctx.addChild(new this.SheetElement(app, el, source))
   SheetElement = class extends ob.MarkdownRenderChild {
     constructor(app, el, source) {
       super(el); Object.assign(this, {app, el})
@@ -129,11 +126,21 @@ const ob = require('obsidian')
     }
   }
 }
-, { sheetview, codesheet } = import_sheet(this.app, ob)
+, sheetView = import_sheet(this.app, ob)
 module.exports = class extends ob.Plugin {
   onload() {
-    this.registerMarkdownPostProcessor(sheetview)
-    this.registerMarkdownCodeBlockProcessor('sheet', codesheet)
+    this.registerMarkdownPostProcessor(sheetView.pre)
+    this.registerMarkdownCodeBlockProcessor('sheet', sheetView.codeblock)
+    this.registerEvent(
+      this.app.workspace.on('file-open', ()=> { sheetView.source = [] })
+    )
+    this.addCommand({
+      id: 'rebuild', name: 'rebuildCurrent',
+      callback: async ()=> {
+        await this.app.workspace.activeLeaf.rebuildView(); sheetView.source = []
+      },
+      hotkeys: [{modifiers: [], key: 'F5'}]
+    })
   }
   onunload() {}
 }

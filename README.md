@@ -1,4 +1,4 @@
-In the current version you need to switch to reading mode before exporting PDF. If the export result is incorrect, it is recommended to go back to editing mode, switch to another note once, then return to the note you want to export, switch to reading mode, and export again.
+In the current version you need to switch to reading mode before exporting PDF. If the export result is incorrect, it is recommended to go back to editing mode and use the command 'rebuildCurrent' to refresh, then switch to reading mode and export again.
 
 Test text：
 
