@@ -2,37 +2,50 @@ const ob = require('obsidian')
 , MERGE_UP_SIGNIFIER = '^'
 , MERGE_LEFT_SIGNIFIER = '<'
 , import_sheet = (app, ob)=> new class {
-  sheetview = async (el, ctx)=> {
-    const tableEls = Array.from(el.querySelectorAll('table')); if (!tableEls[0]) return
-    const prev = {}
-    for (const tableEl2 of tableEls) {
-      const sec = ctx.getSectionInfo(tableEl2)
-      if (sec) {
-        const { text, lineStart, lineEnd } = sec
-        // yes ? match ^| line : match not ^| line
-        , fI = (arr, yes)=> arr.findIndex(i=> (yes ? /^\|/ : /^(?!\|)/).test(i))
-
-        let textContent = (prev.t == text && prev.s == lineStart && prev.ed == lineEnd)
-          ? prev.r // continue old one
-          : text.split('\n').slice(lineStart, lineEnd+1) // get new one
-              .map(line=> line.replace(/^.*?(?=(?<!\\)\|)/, '')) // replace content before |
-        prev.t = text; prev.s = lineStart; prev.ed = lineEnd
-
-        if (textContent[0].startsWith('```')) return // exclude codeblock
-
-        textContent.splice(0, fI(textContent, 1)); let endIndex = fI(textContent)
-        while (endIndex > -1) {
-          prev.r = textContent.splice(endIndex); endIndex = textContent[0].startsWith('|') ? -1 : fI(prev.r)
-        }
-        this.source = textContent.join('\n')
-      }
-
-      if (app.workspace.getActiveFileView()?.getMode() == 'preview' && this.source) {
-        tableEl2.empty(); ctx.addChild(new this.SheetElement(app, tableEl2, this.source))
-      }
+  trimLeading = line=> line.replace(/^.*?(?=(?<!\\)\|)/, '') // trim content before |
+  rgxFindTable = (prev, textContent)=> {
+    if (textContent[0].startsWith('```')) return // exclude codeblock
+    // yes ? match ^| line : match not ^| line
+    const fI = (arr, yes)=> arr.findIndex(i=> (yes ? /^\|/ : /^(?!\|)/).test(i))
+    textContent.splice(0, fI(textContent, !0)); let endIndex = fI(textContent)
+    while (endIndex > -1) {
+      prev = textContent.splice(endIndex)
+      endIndex = textContent[0].startsWith('|') ? -1 : fI(prev)
     }
   }
-  codesheet = async (source, el, ctx)=> ctx.addChild(new this.SheetElement(app, el, source))
+  source = []
+  sheetview = (el, ctx)=> {
+    const view = app.workspace.getActiveFileView(); if (!view) return
+    const tableEls = Array.from(el.querySelectorAll('table')); if (tableEls.length < 1) return
+    const sec = ctx.getSectionInfo(el), prev = {}
+    tableEls.map(async (tEl, tIndex)=> {
+      if (!sec) {
+        await new Promise(r=> setTimeout(r, 50))
+        let source; const callout = tEl.offsetParent, { cmView } = callout
+        // for source mode, table in callout
+        if (cmView) {
+          let textContent = prev.callout?.isEqualNode(callout)
+            ? prev.text : cmView.widget.text.split('\n')
+          textContent = textContent.map(line=> this.trimLeading(line))
+          prev.callout = callout
+          this.rgxFindTable(prev.text, textContent)
+          source = textContent.join('\n')
+        } else source = this.source[tIndex] // when export
+        tEl.empty(); ctx.addChild(new this.SheetElement(app, tEl, source))
+      // reading mode
+      } else {
+        let source; const { text, lineStart, lineEnd } = sec
+        let textContent = prev.r || text.split('\n').slice(lineStart, lineEnd+1)
+        textContent = textContent.map(line=> this.trimLeading(line))
+        this.rgxFindTable(prev.r, textContent)
+        source = textContent.join('\n')
+        tEl.empty(); ctx.addChild(new this.SheetElement(app, tEl, source))
+        this.source.push(source)
+      }
+    })
+    if (view.getMode() == 'source') this.source = []
+  }
+  codesheet = (source, el, ctx)=> ctx.addChild(new this.SheetElement(app, el, source))
   SheetElement = class extends ob.MarkdownRenderChild {
     constructor(app, el, source) {
       super(el); Object.assign(this, {app, el})
