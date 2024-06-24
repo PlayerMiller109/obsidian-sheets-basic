@@ -9,35 +9,38 @@ const ob = require('obsidian')
     const fI = (arr, yes)=> arr.findIndex(i=> (yes ? /^\|/ : /^(?!\|)/).test(i))
     textContent.splice(0, fI(textContent, !0)); let endIndex = fI(textContent)
     while (endIndex > -1) {
-      prev = textContent.splice(endIndex)
-      endIndex = textContent[0].startsWith('|') ? -1 : fI(prev)
+      prev.r = textContent.splice(endIndex)
+      endIndex = textContent[0].startsWith('|') ? -1 : fI(prev.r)
     }
   }
   source = []
   sheetview = (el, ctx)=> {
     const view = app.workspace.getActiveFileView(); if (!view) return
     const tableEls = Array.from(el.querySelectorAll('table')); if (tableEls.length < 1) return
-    const sec = ctx.getSectionInfo(el), prev = {}
+    const prev = {}
     tableEls.map(async (tEl, tIndex)=> {
+      const sec = ctx.getSectionInfo(tEl)
       if (!sec) {
         await new Promise(r=> setTimeout(r, 50))
         let source; const callout = tEl.offsetParent, { cmView } = callout
         // for source mode, table in callout
         if (cmView) {
           let textContent = prev.callout?.isEqualNode(callout)
-            ? prev.text : cmView.widget.text.split('\n')
-          textContent = textContent.map(line=> this.trimLeading(line))
+            ? prev.r
+            : cmView.widget.text.split('\n').map(line=> this.trimLeading(line))
           prev.callout = callout
-          this.rgxFindTable(prev.text, textContent)
+          this.rgxFindTable(prev, textContent)
           source = textContent.join('\n')
         } else source = this.source[tIndex] // when export
         tEl.empty(); ctx.addChild(new this.SheetElement(app, tEl, source))
       // reading mode
       } else {
         let source; const { text, lineStart, lineEnd } = sec
-        let textContent = prev.r || text.split('\n').slice(lineStart, lineEnd+1)
-        textContent = textContent.map(line=> this.trimLeading(line))
-        this.rgxFindTable(prev.r, textContent)
+        let textContent = (prev.t == text && prev.s == lineStart && prev.ed == lineEnd)
+          ? prev.r // continue old one
+          : text.split('\n').slice(lineStart, lineEnd+1).map(line=> this.trimLeading(line)) // get new one
+        prev.t = text; prev.s = lineStart; prev.ed = lineEnd
+        this.rgxFindTable(prev, textContent)
         source = textContent.join('\n')
         tEl.empty(); ctx.addChild(new this.SheetElement(app, tEl, source))
         this.source.push(source)

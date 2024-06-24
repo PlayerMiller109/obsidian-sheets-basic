@@ -23,11 +23,16 @@ Test text：
 > | ----- | ------ |
 > |       | table4 |
 > |       | ^      |
+> 
+> | head5 | <      |
+> | ----- | ------ |
+> |       | table5 |
+> |       | ^      |
 
 ```sheet
-| head5 | <      |
+| head6 | <      |
 | ----- | ------ |
-|       | table5 |
+|       | table6 |
 |       | ^      |
 ```
 ````
@@ -35,6 +40,6 @@ Test text：
 Test in Obsidian v1.6.3 Sandbox Vault:
 
 <div>
-  <image width="400" src="https://github.com/PlayerMiller109/obsidian-sheets-basic/assets/145541890/c44a304c-979c-4482-bbc5-f28f09557ff6">
+  <image width="420" src="https://github.com/PlayerMiller109/obsidian-sheets-basic/assets/145541890/4bdeae8a-d5e3-4baf-a40a-b7940a94467d">
   <br><sup>left: Live Preview; right: Reading Mode</sup>
 </div>
