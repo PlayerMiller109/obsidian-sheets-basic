@@ -1,6 +1,7 @@
-In the current version you need to switch to reading mode before exporting PDF. If the export result is incorrect, it is recommended to go back to editing mode and use the command 'rebuildCurrent' to refresh, then switch to reading mode and export again.
+In the current version you need to switch to reading mode before exporting PDF. If the export result is incorrect, it is recommended to go back to editing mode and use the plugin command 'rebuildCurrent' to refresh (default hotkey: F5), then switch to reading mode and export again.
 
-Test text：
+<details>
+<summary>Test text, click to unfold</summary>
 
 ````markdown
 | head1 | <      |
@@ -36,8 +37,9 @@ Test text：
 |       | ^      |
 ```
 ````
+</details>
 
-Test in Obsidian v1.6.3 Sandbox Vault:
+(2024-06-24) Test in Obsidian v1.6.3 Sandbox Vault:
 
 <div>
   <image width="420" src="https://github.com/PlayerMiller109/obsidian-sheets-basic/assets/145541890/4bdeae8a-d5e3-4baf-a40a-b7940a94467d">
