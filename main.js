@@ -1,17 +1,7 @@
 const ob = require('obsidian')
 , MERGE_UP_SIGNIFIER = '^'
 , MERGE_LEFT_SIGNIFIER = '<'
-, trimLeading = line=> line.replace(/^.*?(?=(?<!\\)\|)/, '') // trim content before |
-, rgxFindTable = (prev, textContent)=> {
-  if (textContent[0].startsWith('```')) return // exclude codeblock
-  // yes ? match ^| line : match not ^| line
-  const fI = (arr, yes)=> arr.findIndex(i=> (yes ? /^\|/ : /^(?!\|)/).test(i))
-  textContent.splice(0, fI(textContent, !0)); let endIndex = fI(textContent)
-  while (endIndex > -1) {
-    prev.r = textContent.splice(endIndex)
-    endIndex = textContent[0].startsWith('|') ? -1 : fI(prev.r)
-  }
-}
+, tableId = 'obsidian-sheet'
 , import_sheet = (app, ob)=> new class {
   source = []
   pre = (el, ctx)=> {
@@ -24,22 +14,22 @@ const ob = require('obsidian')
         await new Promise(r=> setTimeout(r, 50))
         const callout = tEl.offsetParent // for source mode, table in callout
         if (callout?.cmView) {
-          let textContent = prev.callout?.isEqualNode(callout)
+          let rowSources = prev.callout?.isEqualNode(callout)
             ? prev.r
             : callout.cmView.widget.text.split('\n').map(line=> trimLeading(line))
           prev.callout = callout
-          rgxFindTable(prev, textContent)
-          source = textContent.join('\n')
+          rgxFindTable(prev, rowSources)
+          source = rowSources.join('\n')
         } else source = this.source[tIndex] // when export
       // reading mode
       } else {
         const { text, lineStart, lineEnd } = sec
-        let textContent = (prev.t == text && prev.s == lineStart && prev.ed == lineEnd)
+        let rowSources = (prev.t == text && prev.s == lineStart && prev.ed == lineEnd)
           ? prev.r // continue old one
           : text.split('\n').slice(lineStart, lineEnd+1).map(line=> trimLeading(line)) // get new one
         prev.t = text; prev.s = lineStart; prev.ed = lineEnd
-        rgxFindTable(prev, textContent)
-        source = textContent.join('\n')
+        rgxFindTable(prev, rowSources)
+        source = rowSources.join('\n')
         this.source.push(source)
       }
       tEl.empty(); ctx.addChild(new this.SheetElement(app, tEl, source))
@@ -58,7 +48,7 @@ const ob = require('obsidian')
     }
     onload() {
       this.normalizeGrid()
-      this.el.id = 'obsidian-sheet'
+      this.el.id = tableId
       this.tableHead = this.el.createEl('thead')
       this.tableBody = this.el.createEl('tbody')
       this.headerRow = this.contentGrid.findIndex(row=> row.every(col=> this.headerRE.test(col)))
@@ -79,9 +69,9 @@ const ob = require('obsidian')
       )
     }
 
-    getHeaderStyles(rowHeads) {
-      return rowHeads.map(rowHead => {
-        const alignment = rowHead.match(this.headerRE), styles = {}
+    getHeaderStyles(heads) {
+      return heads.map(head=> {
+        const alignment = head.match(this.headerRE), styles = {}
         if (alignment[1] && alignment[2]) styles['textAlign'] = 'center'
         else if (alignment[1]) styles['textAlign'] = 'left'
         else if (alignment[2]) styles['textAlign'] = 'right'
@@ -96,33 +86,58 @@ const ob = require('obsidian')
         if (rowIndex < this.headerRow) rowNode = this.tableHead.createEl('tr')
         this.domGrid[rowIndex] = []
         const rows = this.contentGrid[rowIndex]
-        for (let columnIndex = 0; columnIndex < rows.length; columnIndex++)
-          this.buildDomCell(rowIndex, columnIndex, rowNode)
+        for (let colIndex = 0; colIndex < rows.length; colIndex++)
+          this.buildDomCell(rowIndex, colIndex, rowNode)
       }
     }
-    buildDomCell(rowIndex, columnIndex, rowNode) {
+    buildDomCell(rowIndex, colIndex, rowNode) {
       if (rowIndex == this.headerRow) return
       let cellTag = 'td', cell, cellStyles
       if (rowIndex < this.headerRow) cellTag = 'th'
-      const cellContent = this.contentGrid[rowIndex][columnIndex]
-      if (cellContent == MERGE_LEFT_SIGNIFIER && columnIndex > 0) {
-        cell = this.domGrid[rowIndex][columnIndex - 1]
-        cell?.colSpan || Object.assign(cell, { colSpan: 1 })
+      const cellContent = this.contentGrid[rowIndex][colIndex]
+      if (cellContent == MERGE_LEFT_SIGNIFIER && colIndex > 0) {
+        cell = this.domGrid[rowIndex][colIndex - 1]
+        cell.colSpan || Object.assign(cell, { colSpan: 1 })
         cell.colSpan += 1
       } else if (cellContent == MERGE_UP_SIGNIFIER && rowIndex > 0) {
-        cell = this.domGrid[rowIndex - 1][columnIndex]
-        cell?.rowSpan || Object.assign(cell, { rowSpan: 1 })
+        cell = this.domGrid[rowIndex - 1][colIndex]
+        cell.rowSpan || Object.assign(cell, { rowSpan: 1 })
         cell.rowSpan += 1
       } else {
         cell = rowNode.createEl(cellTag)
         ob.MarkdownRenderer.render(this.app, `\u200B ${cellContent||'\u200B'}`, cell, '', this)
           .then(()=> cell.innerHTML = cell.children[0].innerHTML.replace(/^\u200B /g, ''))
       }
-      if (this.colStyles?.[columnIndex]) {
-        cellStyles = { ...cellStyles, ...this.colStyles[columnIndex].styles }
+      if (this.colStyles?.[colIndex]) {
+        cellStyles = { ...cellStyles, ...this.colStyles[colIndex].styles }
       }
       Object.assign(cell.style, cellStyles)
-      return this.domGrid[rowIndex][columnIndex] = cell
+      return this.domGrid[rowIndex][colIndex] = cell
+    }
+  }
+  editor = view=> view.docView.children
+    .flatMap(c=> c.dom.className.includes('table-widget') ? c.widget : []).map(this.exe)
+  exe = (table)=> {
+    const cells = table.rows.flat(); let cell
+    for (const cell1 of cells) {
+      if (cell1.el.id == tableId) continue; let i = 1
+      if (cell1.text == MERGE_LEFT_SIGNIFIER) {
+        do {
+          cell = cells.find(cell2=> cell2.row == cell1.row && cell2.col == cell1.col - i)?.el
+          if (!cell) break; i++
+        } while (cell.id == tableId); if (!cell) continue
+        cell.colSpan || Object.assgin(cell, { colSpan: 1 })
+        cell.colSpan += 1
+        cell1.el.id = tableId; cell1.el.style = 'display: none;'
+      } else if (cell1.text == MERGE_UP_SIGNIFIER) {
+        do {
+          cell = cells.find(cell2=> cell2.row == cell1.row - i && cell2.col == cell1.col)?.el
+          if (!cell) break; i++
+        } while (cell.id == tableId); if (!cell) continue
+        cell.rowSpan || Object.assign(cell, { rowSpan: 1 })
+        cell.rowSpan += 1
+        cell1.el.id = tableId; cell1.el.style = 'display: none;'
+      }
     }
   }
 }
@@ -132,7 +147,11 @@ module.exports = class extends ob.Plugin {
     this.registerMarkdownPostProcessor(sheetView.pre)
     this.registerMarkdownCodeBlockProcessor('sheet', sheetView.codeblock)
     this.registerEvent(
-      this.app.workspace.on('file-open', ()=> { sheetView.source = [] })
+      this.app.workspace.on('file-open', ()=> {
+        sheetView.source = []
+        const view5 = this.app.workspace.getActiveFileView(); if (!view5) return
+        sheetView.editor(view5.currentMode.cm)
+      }),
     )
     this.addCommand({
       id: 'rebuild', name: 'rebuildCurrent',
@@ -143,4 +162,15 @@ module.exports = class extends ob.Plugin {
     })
   }
   onunload() {}
+}
+const trimLeading = line=> line.replace(/^.*?(?=(?<!\\)\|)/, '') // trim content before |
+, rgxFindTable = (prev, rowSources)=> {
+  if (rowSources[0].startsWith('```')) return // exclude codeblock
+  // yes ? match ^| line : match not ^| line
+  const fI = (arr, yes)=> arr.findIndex(i=> (yes ? /^\|/ : /^(?!\|)/).test(i))
+  rowSources.splice(0, fI(rowSources, !0)); let endIndex = fI(rowSources)
+  while (endIndex > -1) {
+    prev.r = rowSources.splice(endIndex)
+    endIndex = rowSources[0].startsWith('|') ? -1 : fI(prev.r)
+  }
 }
