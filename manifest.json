@@ -3,7 +3,7 @@
   "name": "Sheets Basic",
   "version": "0.0.1",
   "minAppVersion": "0.0.1",
-  "description": "Basic version of Sheets Extended Plugin by @NicoNekoru",
+  "description": "Merge markdown tables",
   "author": "PlayerMiller109",
   "authorUrl": "https://github.com/PlayerMiller109/obsidian-sheets-basic",
   "isDesktopOnly": false

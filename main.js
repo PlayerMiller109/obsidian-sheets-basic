@@ -115,28 +115,46 @@ const ob = require('obsidian')
       return this.domGrid[rowIndex][colIndex] = cell
     }
   }
-  editor = view=> view.docView.children
-    .flatMap(c=> c.dom.className.includes('table-widget') ? c.widget : []).map(this.exe)
-  exe = (table)=> {
-    const cells = table.rows.flat(); let cell
-    for (const cell1 of cells) {
-      if (cell1.el.id == tableId) continue; let i = 1
-      if (cell1.text == MERGE_LEFT_SIGNIFIER) {
-        do {
-          cell = cells.find(cell2=> cell2.row == cell1.row && cell2.col == cell1.col - i)?.el
-          if (!cell) break; i++
-        } while (cell.id == tableId); if (!cell) continue
-        cell.colSpan || Object.assgin(cell, { colSpan: 1 })
-        cell.colSpan += 1
-        cell1.el.id = tableId; cell1.el.style = 'display: none;'
-      } else if (cell1.text == MERGE_UP_SIGNIFIER) {
-        do {
-          cell = cells.find(cell2=> cell2.row == cell1.row - i && cell2.col == cell1.col)?.el
-          if (!cell) break; i++
-        } while (cell.id == tableId); if (!cell) continue
-        cell.rowSpan || Object.assign(cell, { rowSpan: 1 })
-        cell.rowSpan += 1
-        cell1.el.id = tableId; cell1.el.style = 'display: none;'
+  editor = class {
+    update(update) {
+      const view5 = app.workspace.getActiveFileView(); if (!view5) return
+      const undo = update.transactions.find(tr=> tr.isUserEvent('undo')), { tableCell } = view5.currentMode
+      // when cursor in table you can get tableCell
+      // table.render() is an Ob prototype, you can use table.rebuildTable() too
+      if (undo && tableCell) { tableCell.table.render(); this.exe(tableCell.table) }
+      const { view } = update; if (!update.focusChanged || !view.hasFocus) return
+      if (tableCell) {
+        const { cell, table } = tableCell, { row, col } = cell, cells = table.rows.flat(), cellEl = cell.el
+        if (cellEl.rowSpan > 1 || cellEl.colSpan > 1) {
+          cells.filter(cell2=>
+            row <= cell2.row && cell2.row < row + cellEl.rowSpan && col <= cell2.col && cell2.col < col + cellEl.colSpan
+          ).map(cell2=> { cell2.el.removeAttribute('id'); cell2.el.style = 'display: table-cell;' })
+          cellEl.colSpan = 1; cellEl.rowSpan = 1
+        }
+      } else setTimeout(()=> this.getWidgets(view).map(this.exe))
+    }
+    getWidgets = (view)=> view.docView.children.flatMap(c=> c.dom.className.includes('table-widget') ? c.widget : [])
+    exe = (table)=> {
+      const cells = table.rows.flat(); let cellEl
+      for (const cell of cells) {
+        if (cell.el.id == tableId) continue; let i = 1
+        if (cell.text == MERGE_LEFT_SIGNIFIER) {
+          do {
+            cellEl = cells.find(cell2=> cell2.row == cell.row && cell2.col == cell.col - i)?.el
+            if (!cellEl) break; i++
+          } while (cellEl.id == tableId); if (!cellEl) continue
+          cellEl.colSpan || Object.assgin(cellEl, { colSpan: 1 })
+          cellEl.colSpan += 1
+          cell.el.id = tableId; cell.el.style = 'display: none;'
+        } else if (cell.text == MERGE_UP_SIGNIFIER) {
+          do {
+            cellEl = cells.find(cell2=> cell2.row == cell.row - i && cell2.col == cell.col)?.el
+            if (!cellEl) break; i++
+          } while (cellEl.id == tableId); if (!cellEl) continue
+          cellEl.rowSpan || Object.assign(cellEl, { rowSpan: 1 })
+          cellEl.rowSpan += 1
+          cell.el.id = tableId; cell.el.style = 'display: none;'
+        }
       }
     }
   }
@@ -147,11 +165,7 @@ module.exports = class extends ob.Plugin {
     this.registerMarkdownPostProcessor(sheetView.pre)
     this.registerMarkdownCodeBlockProcessor('sheet', sheetView.codeblock)
     this.registerEvent(
-      this.app.workspace.on('file-open', ()=> {
-        sheetView.source = []
-        const view5 = this.app.workspace.getActiveFileView(); if (!view5) return
-        sheetView.editor(view5.currentMode.cm)
-      }),
+      this.app.workspace.on('file-open', ()=> sheetView.source = []),
     )
     this.addCommand({
       id: 'rebuild', name: 'rebuildCurrent',
@@ -160,10 +174,12 @@ module.exports = class extends ob.Plugin {
       },
       hotkeys: [{modifiers: [], key: 'F5'}]
     })
+    this.registerEditorExtension([ViewPlugin.fromClass(sheetView.editor)])
   }
   onunload() {}
 }
-const trimLeading = line=> line.replace(/^.*?(?=(?<!\\)\|)/, '') // trim content before |
+const { ViewPlugin } = require('@codemirror/view')
+, trimLeading = line=> line.replace(/^.*?(?=(?<!\\)\|)/, '') // trim content before |
 , rgxFindTable = (prev, rowSources)=> {
   if (rowSources[0].startsWith('```')) return // exclude codeblock
   // yes ? match ^| line : match not ^| line
