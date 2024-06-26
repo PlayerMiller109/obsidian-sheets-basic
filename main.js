@@ -131,9 +131,9 @@ const ob = require('obsidian')
           ).map(cell2=> { cell2.el.removeAttribute('id'); cell2.el.style = 'display: table-cell;' })
           cellEl.colSpan = 1; cellEl.rowSpan = 1
         }
-      } else setTimeout(()=> this.getWidgets(view).map(this.exe))
+      } else setTimeout(()=> this.batchExe(view))
     }
-    getWidgets = (view)=> view.docView.children.flatMap(c=> c.dom.className.includes('table-widget') ? c.widget : [])
+    batchExe = (view)=> view.docView.children.flatMap(c=> c.dom.className.includes('table-widget') ? c.widget : []).map(this.exe)
     exe = (table)=> {
       const cells = table.rows.flat(); let cellEl
       for (const cell of cells) {
@@ -159,13 +159,16 @@ const ob = require('obsidian')
     }
   }
 }
-, sheetView = import_sheet(this.app, ob)
+, sheetView = import_sheet(this.app, ob), { batchExe } = new sheetView.editor
 module.exports = class extends ob.Plugin {
   onload() {
     this.registerMarkdownPostProcessor(sheetView.pre)
     this.registerMarkdownCodeBlockProcessor('sheet', sheetView.codeblock)
     this.registerEvent(
-      this.app.workspace.on('file-open', ()=> sheetView.source = []),
+      this.app.workspace.on('file-open', ()=> {
+        sheetView.source = []; const view5 = app.workspace.getActiveFileView()
+        if (view5) setTimeout(()=> batchExe(view5.currentMode.cm), 50)
+      }),
     )
     this.addCommand({
       id: 'rebuild', name: 'rebuildCurrent',
