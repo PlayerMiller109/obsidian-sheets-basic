@@ -5,7 +5,6 @@
     - When used in a normal table cell, it will refresh the table. Avoid placing your cursor in a signifier cell.
     - When used in a merged table cell, it will unmerge the cell, and the cell will become a normal cell.
 - Do not use the mergeUp_Sign in the first row of the table body; that is, do not merge the table header and the table body.
-- Do not use both mergeUp_Sign and mergeLeft_Sign for the same cell, which does not work in reading mode.
 
 <details>
 <summary>Test text, click to unfold</summary>

@@ -112,7 +112,7 @@ const ob = require('obsidian'), { ViewPlugin } = require('@codemirror/view')
       } else if (cellContent == mergeUp_Sign && rowIndex > 0) {
         cell = this.domGrid[rowIndex - 1][colIndex]
         cell.rowSpan || Object.assign(cell, { rowSpan: 1 })
-        cell.rowSpan += 1
+        if (rowIndex - 1 > cell.rowSpan) cell.rowSpan += 1
       } else {
         cell = rowNode.createEl(cellTag)
         ob.MarkdownRenderer.render(this.app, `\u200B ${cellContent||'\u200B'}`, cell, '', this)
@@ -132,7 +132,7 @@ const ob = require('obsidian'), { ViewPlugin } = require('@codemirror/view')
       this.app.workspace.on('file-open', ()=> {
         sheetView.source = []
         const view5 = this.app.workspace.getActiveFileView()
-        if (!view5) return; if (!view5.currentMode) return
+        if (!view5) return; if (!view5.currentMode?.cm) return
         setTimeout(()=> batchExe(view5.currentMode.cm), 50)
       }),
     )
