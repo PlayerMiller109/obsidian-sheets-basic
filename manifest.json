@@ -2,8 +2,8 @@
   "id": "sheets-basic",
   "name": "Sheets Basic",
   "version": "0.0.1",
-  "minAppVersion": "0.0.1",
-  "description": "Merge markdown tables",
+  "minAppVersion": "1.5.0",
+  "description": "Merge markdown table cells.",
   "author": "PlayerMiller109",
   "authorUrl": "https://github.com/PlayerMiller109/obsidian-sheets-basic",
   "isDesktopOnly": false
