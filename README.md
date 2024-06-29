@@ -2,8 +2,8 @@
 - Use the plugin command 'rebuildCurrent' (default hotkey `F5`) in editing mode to refresh.
     - It is recommended to refresh once before exporting PDF, then switch to reading mode and export.
     - When use outside tables, it will refresh the active leaf.
-    - When use in a normal table cell, it will refresh the table.
-    - When use in a merged table cell, it will unmerge the cell (and the cell becomes a normal cell).
+    - When use in a normal table cell, it will refresh the table. Avoid your cursor in a signifier cell.
+    - When use in a merged table cell, it will unmerge the cell, and the cell becomes a normal cell.
 - Do not use the upper merge in the first row of the table body, that is, do not merge the table header and the table body.
 
 <details>
