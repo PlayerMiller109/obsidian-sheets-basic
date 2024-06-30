@@ -161,22 +161,22 @@ const exe = (table)=> {
   const cells = table.rows.flat(); let cellEl
   for (const cell of cells) {
     if (cell.el.id == tableId) continue; let i = 1
-    if (cell.text == mergeLeft_Sign) {
+    if (cell.text == mergeLeft_Sign && cell.col > 0) {
+      cell.el.id = tableId; cell.el.style = 'display: none;'
       do {
         cellEl = cells.find(cell2=> cell2.row == cell.row && cell2.col == cell.col - i)?.el
         if (!cellEl) break; i++
       } while (cellEl.id == tableId); if (!cellEl) continue
       cellEl.colSpan || Object.assgin(cellEl, { colSpan: 1 })
       cellEl.colSpan += 1
+    } else if (cell.text == mergeUp_Sign && cell.row > 0) {
       cell.el.id = tableId; cell.el.style = 'display: none;'
-    } else if (cell.text == mergeUp_Sign) {
       do {
         cellEl = cells.find(cell2=> cell2.row == cell.row - i && cell2.col == cell.col)?.el
         if (!cellEl) break; i++
       } while (cellEl.id == tableId); if (!cellEl) continue
       cellEl.rowSpan || Object.assign(cellEl, { rowSpan: 1 })
       cellEl.rowSpan += 1
-      cell.el.id = tableId; cell.el.style = 'display: none;'
     }
   }
 }
