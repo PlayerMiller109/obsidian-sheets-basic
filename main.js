@@ -1,19 +1,19 @@
 const ob = require('obsidian'), { ViewPlugin } = require('@codemirror/view')
 , mergeUp_Sign = '^', mergeLeft_Sign = '<', tableId = 'obsidian-sheet'
 , import_sheet = (app, ob)=> {
-  class sheetEditor {
+  class liveParser {
     update(update) {
       const view5 = app.workspace.getActiveFileView(); if (!view5) return; if (!view5.currentMode) return
       const undo = update.transactions.find(tr=> tr.isUserEvent('undo')), { tableCell } = view5.currentMode
       // when cursor in table you can get tableCell
       // table.render() is an Ob prototype, you can use table.rebuildTable() too
-      if (undo && tableCell) { tableCell.table.render(); exe(tableCell.table) }
-      const { view } = update; if (update.focusChanged && view.hasFocus) setTimeout(()=> batchExe(view))
+      if (undo && tableCell) { tableCell.table.render(); mergeTable(tableCell.table) }
+      const { view } = update; if (update.focusChanged && view.hasFocus) setTimeout(()=> mergeAllInView(view))
     }
   }
-  const sheetView = new class {
+  const staticParser = new class {
     source = []
-    pre = (el, ctx)=> {
+    main = (el, ctx)=> {
       const view = app.workspace.getActiveFileView(); if (!view) return
       const tableEls = Array.from(el.querySelectorAll('table')); if (tableEls.length < 1) return
       const prev = {}
@@ -45,7 +45,7 @@ const ob = require('obsidian'), { ViewPlugin } = require('@codemirror/view')
       })
     }
   }
-  const codeblock = (source, el, ctx)=> ctx.addChild(new SheetElement(app, el, source))
+  const blockParser = (source, el, ctx)=> ctx.addChild(new SheetElement(app, el, source))
   class SheetElement extends ob.MarkdownRenderChild {
     constructor(app, el, source) {
       super(el); Object.assign(this, {app, el})
@@ -126,14 +126,14 @@ const ob = require('obsidian'), { ViewPlugin } = require('@codemirror/view')
     }
   }
   function Load() {
-    this.registerMarkdownPostProcessor(sheetView.pre)
-    this.registerMarkdownCodeBlockProcessor('sheet', codeblock)
+    this.registerMarkdownPostProcessor(staticParser.main)
+    this.registerMarkdownCodeBlockProcessor('sheet', blockParser)
     this.registerEvent(
       this.app.workspace.on('file-open', ()=> {
-        sheetView.source = []
+        staticParser.source = []
         const view5 = this.app.workspace.getActiveFileView()
         if (!view5) return; if (!view5.currentMode?.cm) return
-        setTimeout(()=> batchExe(view5.currentMode.cm), 50)
+        setTimeout(()=> mergeAllInView(view5.currentMode.cm), 50)
       }),
     )
     this.addCommand({
@@ -141,23 +141,23 @@ const ob = require('obsidian'), { ViewPlugin } = require('@codemirror/view')
       editorCallback: async (editor, view)=> {
         const { tableCell } = view.currentMode
         if (tableCell) {
-          const checking = unmerge(tableCell); if (!checking) exe(tableCell.table)
+          const checking = unmergeCell(tableCell); if (!checking) mergeTable(tableCell.table)
         } else await view.leaf.rebuildView()
-        sheetView.source = []
+        staticParser.source = []
       },
       hotkeys: [{modifiers: [], key: 'F5'}]
     })
   }
-  return { sheetEditor, Load }
+  return { liveParser, Load }
 }
 module.exports = class extends ob.Plugin {
   onload() {
-    const { sheetEditor, Load } = import_sheet(this.app, ob)
-    this.registerEditorExtension([ViewPlugin.fromClass(sheetEditor)]); Load.call(this)
+    const { liveParser, Load } = import_sheet(this.app, ob); Load.call(this)
+    this.registerEditorExtension([ViewPlugin.fromClass(liveParser)])
   }
   onunload() {}
 }
-const exe = (table)=> {
+const mergeTable = table=> {
   const cells = table.rows.flat(); let cellEl
   for (const cell of cells) {
     if (cell.el.id == tableId) continue; let i = 1
@@ -180,8 +180,8 @@ const exe = (table)=> {
     }
   }
 }
-, batchExe = (view)=> view.docView.children.flatMap(c=> c.dom.className.includes('table-widget') ? c.widget : []).map(exe)
-, unmerge = tableCell=> {
+, mergeAllInView = view=> view.docView.children.flatMap(c=> c.dom.className.includes('table-widget') ? c.widget : []).map(mergeTable)
+, unmergeCell = tableCell=> {
   const { cell, table } = tableCell, { row, col } = cell, cells = table.rows.flat(), cellEl = cell.el
   if (cellEl.rowSpan > 1 || cellEl.colSpan > 1) {
     cells.filter(cell2=>
