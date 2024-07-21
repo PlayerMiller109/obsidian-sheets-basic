@@ -11,7 +11,7 @@ const ob = require('obsidian'), { ViewPlugin } = require('@codemirror/view')
       const { view } = update; if (update.focusChanged && view.hasFocus) setTimeout(()=> mergeAllInView(view))
     }
   }
-  const staticParser = new class {
+  const postParser = new class {
     source = []
     main = (el, ctx)=> {
       const view = app.workspace.getActiveFileView(); if (!view) return
@@ -126,11 +126,11 @@ const ob = require('obsidian'), { ViewPlugin } = require('@codemirror/view')
     }
   }
   function Load() {
-    this.registerMarkdownPostProcessor(staticParser.main)
+    this.registerMarkdownPostProcessor(postParser.main)
     this.registerMarkdownCodeBlockProcessor('sheet', blockParser)
     this.registerEvent(
       this.app.workspace.on('file-open', ()=> {
-        staticParser.source = []
+        postParser.source = []
         const view5 = this.app.workspace.getActiveFileView()
         if (!view5) return; if (!view5.currentMode?.cm) return
         setTimeout(()=> mergeAllInView(view5.currentMode.cm), 50)
@@ -143,7 +143,7 @@ const ob = require('obsidian'), { ViewPlugin } = require('@codemirror/view')
         if (tableCell) {
           const checking = unmergeCell(tableCell); if (!checking) mergeTable(tableCell.table)
         } else await view.leaf.rebuildView()
-        staticParser.source = []
+        postParser.source = []
       },
       hotkeys: [{modifiers: [], key: 'F5'}]
     })
