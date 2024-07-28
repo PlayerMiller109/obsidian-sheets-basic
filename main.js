@@ -71,12 +71,9 @@ const ob = require('obsidian'), { ViewPlugin } = require('@codemirror/view')
         const rows = this.contentGrid[rowIndex]
         if (this.rowMaxLength < rows.length) this.rowMaxLength = rows.length
       }
-      this.contentGrid = this.contentGrid.map(
-        (line)=> Array.from(
-          { ...line, length: this.rowMaxLength },
-          cell=> cell || ''
-        )
-      )
+      this.contentGrid = this.contentGrid.map(line=> Array.from(
+        { ...line, length: this.rowMaxLength }, cell=> cell || ''
+      ))
     }
 
     getHeaderStyles(heads) {
@@ -138,10 +135,11 @@ const ob = require('obsidian'), { ViewPlugin } = require('@codemirror/view')
     )
     this.addCommand({
       id: 'rebuild', name: 'rebuildCurrent',
-      editorCallback: async (editor, view)=> {
+      editorCallback: async (_, view)=> {
         const { tableCell } = view.currentMode
         if (tableCell) {
-          const checking = unmergeCell(tableCell); if (!checking) mergeTable(tableCell.table)
+          const checking = unmergeCell(tableCell)
+          if (!checking) mergeTable(tableCell.table)
         } else await view.leaf.rebuildView()
         postParser.source = []
       },
