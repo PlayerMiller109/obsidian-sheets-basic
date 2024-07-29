@@ -41,21 +41,19 @@ const ob = require('obsidian'), { ViewPlugin } = require('@codemirror/view')
           source = rowSources.join('\n')
           this.source.push(source)
         }
-        tEl.empty(); ctx.addChild(new SheetElement(app, tEl, source))
+        tEl.empty(); source && ctx.addChild(new SheetElement(app, tEl, source))
       })
     }
   }
-  const blockParser = (source, el, ctx)=> ctx.addChild(new SheetElement(app, el, source))
+  const blockParser = (source, el, ctx)=> source && ctx.addChild(new SheetElement(app, el, source))
   class SheetElement extends ob.MarkdownRenderChild {
     constructor(app, el, source) {
       super(el); Object.assign(this, {app, el})
-      this.rowMaxLength = 0
-      this.domGrid = []
-
-      this.cellBorderRE = /(?<!\\)\|/
-      this.headerRE = /^\s*?(:)?(?:-)+?(:)?\s*/
       this.contentGrid = source.split('\n').filter(row=> row).map(row=> row.split(this.cellBorderRE).slice(1, -1).map(cell=> cell.trim()))
     }
+    cellBorderRE = /(?<!\\)\|/
+    headerRE = /^\s*?(:)?(?:-)+?(:)?\s*/
+    rowMaxLength = 0; domGrid = []
     onload() {
       this.normalizeGrid()
       this.el.id = tableId
