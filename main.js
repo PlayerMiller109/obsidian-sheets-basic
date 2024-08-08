@@ -1,10 +1,10 @@
 const ob = require('obsidian'), { ViewPlugin } = require('@codemirror/view')
 , mergeUp_Sign = '^', mergeLeft_Sign = '<', tableId = 'obsidian-sheet'
-, import_sheet = (app, ob)=> {
+, import_sheet = ({app, ob, ViewPlugin})=> {
   class liveParser {
     update(update) {
-      const view5 = app.workspace.getActiveFileView(); if (!view5) return; if (!view5.currentMode) return
-      const undo = update.transactions.find(tr=> tr.isUserEvent('undo')), { tableCell } = view5.currentMode
+      const a1 = app.workspace.getActiveFileView()?.currentMode; if (!a1) return
+      const undo = update.transactions.find(tr=> tr.isUserEvent('undo')), { tableCell } = a1
       // when cursor in table you can get tableCell
       // table.render() is an Ob prototype, you can use table.rebuildTable() too
       if (undo && tableCell) { tableCell.table.render(); mergeTable(tableCell.table) }
@@ -14,41 +14,43 @@ const ob = require('obsidian'), { ViewPlugin } = require('@codemirror/view')
   const postParser = new class {
     source = []
     main = (el, ctx)=> {
-      const view = app.workspace.getActiveFileView(); if (!view) return
+      const view5 = app.workspace.getActiveFileView(); if (!view5) return
       const tableEls = Array.from(el.querySelectorAll('table')); if (tableEls.length < 1) return
       const prev = {}
       tableEls.map(async (tEl, tIndex)=> {
         let source; const sec = ctx.getSectionInfo(tEl)
         if (!sec) {
           await new Promise(r=> setTimeout(r, 50))
-          const callout = tEl.offsetParent // for source mode, table in callout
-          if (callout?.cmView) {
-            let rowSources = prev.callout?.isEqualNode(callout)
-              ? prev.r
-              : callout.cmView.widget.text.split('\n').map(line=> trimLeading(line))
+          const callout = tEl.offsetParent
+          if (callout?.cmView) { // for source mode, assume table is in callout
+            let rowSources
+            if (prev.callout?.isEqualNode(callout)) rowSources = prev.r;
+            else {
+              const a1 = callout.cmView.widget.text; if (!a1) return // table in Dataview
+              rowSources = a1.split('\n').map(line=> trimLeading(line))
+            }
             prev.callout = callout
             rgxFindTable(prev, rowSources)
             source = rowSources.join('\n')
           } else source = this.source[tIndex] // when export
         // reading mode
         } else {
-          const { text, lineStart, lineEnd } = sec
-          let rowSources = (prev.t == text && prev.s == lineStart && prev.ed == lineEnd)
-            ? prev.r // continue old one
-            : text.split('\n').slice(lineStart, lineEnd+1).map(line=> trimLeading(line)) // get new one
+          const { text, lineStart, lineEnd } = sec; let rowSources
+          if (prev.t == text && prev.s == lineStart && prev.ed == lineEnd) rowSources = prev.r; // continue old one
+          else rowSources = text.split('\n').slice(lineStart, lineEnd+1).map(line=> trimLeading(line)) // get new one
           prev.t = text; prev.s = lineStart; prev.ed = lineEnd
           rgxFindTable(prev, rowSources)
           source = rowSources.join('\n')
           this.source.push(source)
         }
-        tEl.empty(); source && ctx.addChild(new SheetElement(app, tEl, source))
+        if (!source) return; tEl.empty(); ctx.addChild(new SheetElement(tEl, source))
       })
     }
   }
-  const blockParser = (source, el, ctx)=> source && ctx.addChild(new SheetElement(app, el, source))
+  const blockParser = (source, el, ctx)=> source && ctx.addChild(new SheetElement(el, source))
   class SheetElement extends ob.MarkdownRenderChild {
-    constructor(app, el, source) {
-      super(el); Object.assign(this, {app, el})
+    constructor(el, source) {
+      super(el); el.id = tableId; this.tableHead = el.createEl('thead'); this.tableBody = el.createEl('tbody')
       this.contentGrid = source.split('\n').filter(row=> row).map(row=> row.split(this.cellBorderRE).slice(1, -1).map(cell=> cell.trim()))
     }
     cellBorderRE = /(?<!\\)\|/
@@ -56,9 +58,6 @@ const ob = require('obsidian'), { ViewPlugin } = require('@codemirror/view')
     rowMaxLength = 0; domGrid = []
     onload() {
       this.normalizeGrid()
-      this.el.id = tableId
-      this.tableHead = this.el.createEl('thead')
-      this.tableBody = this.el.createEl('tbody')
       this.headerRow = this.contentGrid.findIndex(row=> row.every(col=> this.headerRE.test(col)))
       if (this.headerRow !== -1) this.colStyles = this.getHeaderStyles(this.contentGrid[this.headerRow])
       this.buildDomTable()
@@ -110,7 +109,7 @@ const ob = require('obsidian'), { ViewPlugin } = require('@codemirror/view')
         if (rowIndex - 1 > cell.rowSpan) cell.rowSpan += 1
       } else {
         cell = rowNode.createEl(cellTag)
-        ob.MarkdownRenderer.render(this.app, `\u200B ${cellContent||'\u200B'}`, cell, '', this)
+        ob.MarkdownRenderer.render(app, `\u200B ${cellContent||'\u200B'}`, cell, '', this)
           .then(()=> cell.innerHTML = cell.children[0].innerHTML.replace(/^\u200B /g, ''))
       }
       if (this.colStyles?.[colIndex]) {
@@ -120,36 +119,34 @@ const ob = require('obsidian'), { ViewPlugin } = require('@codemirror/view')
       return this.domGrid[rowIndex][colIndex] = cell
     }
   }
-  function Load() {
+  return function() {
     this.registerMarkdownPostProcessor(postParser.main)
     this.registerMarkdownCodeBlockProcessor('sheet', blockParser)
     this.registerEvent(
-      this.app.workspace.on('file-open', ()=> {
+      app.workspace.on('file-open', ()=> {
         postParser.source = []
-        const view5 = this.app.workspace.getActiveFileView()
-        if (!view5) return; if (!view5.currentMode?.cm) return
-        setTimeout(()=> mergeAllInView(view5.currentMode.cm), 50)
+        const view = app.workspace.getActiveFileView()?.currentMode?.cm
+        if (view) setTimeout(()=> mergeAllInView(view), 50)
       }),
     )
     this.addCommand({
       id: 'rebuild', name: 'rebuildCurrent',
-      editorCallback: async (_, view)=> {
-        const { tableCell } = view.currentMode
+      editorCallback: async (_, view5)=> {
+        const { tableCell } = view5.currentMode
         if (tableCell) {
           const checking = unmergeCell(tableCell)
           if (!checking) mergeTable(tableCell.table)
-        } else await view.leaf.rebuildView()
+        } else await view5.leaf.rebuildView()
         postParser.source = []
       },
       hotkeys: [{modifiers: [], key: 'F5'}]
     })
+    this.registerEditorExtension([ViewPlugin.fromClass(liveParser)])
   }
-  return { liveParser, Load }
 }
 module.exports = class extends ob.Plugin {
   onload() {
-    const { liveParser, Load } = import_sheet(this.app, ob); Load.call(this)
-    this.registerEditorExtension([ViewPlugin.fromClass(liveParser)])
+    import_sheet({app: this.app, ob, ViewPlugin}).call(this)
   }
   onunload() {}
 }
