@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production"
+  },
+  "author": "PlayerMiller109",
+  "devDependencies": {
+    "builtin-modules": "^4.0.0",
+    "esbuild": "^0.24.2",
+    "obsidian": "latest"
+  }
+}
