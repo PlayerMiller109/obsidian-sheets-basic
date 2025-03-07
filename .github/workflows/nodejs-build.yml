@@ -1,8 +1,11 @@
 name: Node.js CI/CD
+run-name: ${{ inputs.name }}
 
 on:
-  push:
-    branches: [b2]
+  workflow_dispatch:
+    inputs:
+      name:
+        required: true
 
 jobs:
   build:
