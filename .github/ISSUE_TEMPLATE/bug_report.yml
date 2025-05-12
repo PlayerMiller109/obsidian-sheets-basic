@@ -1,0 +1,24 @@
+name: Bug report
+description: Report a bug
+body:
+  - type: checkboxes
+    attributes:
+      label: Check before the Report
+      description: |
+        If you know Chinese:
+        <br>如果你懂中文，请参照 [故障排查指导 Troubleshooting Guide](https://forum-zh.obsidian.md/t/topic/27879/1) 先行排查。
+        <br>else, you can refer to [About the Bug reports category - Obsidian Forum](https://forum.obsidian.md/t/about-the-bug-reports-category/24/11)
+        <br>*On desktop, open the sandbox vault (Open Help > Sandbox Vault, this can be accessed from the command palette or the lower left ribbon) and see if you can reproduce the issue.*
+      options:
+        - label: I have verified that I am on the latest version of the plugin.
+        - label: I have tested in Sandbox Vault.
+          required: true
+
+  - type: textarea
+    attributes:
+      label: Steps
+      description: If applicable, add screenshots, GIFs and attachments to help explain your problem.
+      value: |
+        **Describe the Bug**
+
+        **How to Reproduce**

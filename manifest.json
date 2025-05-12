@@ -1,0 +1,10 @@
+{
+  "id": "sheets-basic",
+  "name": "Sheets Basic",
+  "version": "0.0.1",
+  "minAppVersion": "1.5.0",
+  "description": "Merge markdown table cells.",
+  "author": "PlayerMiller109",
+  "authorUrl": "https://github.com/PlayerMiller109",
+  "isDesktopOnly": false
+}
